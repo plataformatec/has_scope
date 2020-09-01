@@ -4,7 +4,7 @@
 [![Build Status](https://api.travis-ci.org/heartcombo/has_scope.svg?branch=master)](http://travis-ci.org/heartcombo/has_scope)
 [![Code Climate](https://codeclimate.com/github/heartcombo/has_scope.svg)](https://codeclimate.com/github/heartcombo/has_scope)
 
-Has scope allows you to map incoming controller parameters to named scopes in your resources.
+Has scope allows you to dynamically apply named scopes to your resources based on an incoming set of parameters.
 
 ## Table of contents
 - [Quick Example](#quick-example)
