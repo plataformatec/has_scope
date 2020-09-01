@@ -4,12 +4,14 @@
 [![Build Status](https://api.travis-ci.org/heartcombo/has_scope.svg?branch=master)](http://travis-ci.org/heartcombo/has_scope)
 [![Code Climate](https://codeclimate.com/github/heartcombo/has_scope.svg)](https://codeclimate.com/github/heartcombo/has_scope)
 
-Has scope allows you to dynamically apply named scopes to your resources based on an incoming set of parameters.
+_HasScope_ allows you to dynamically apply named scopes to your resources based on an incoming set of parameters.
 
 ## Table of contents
 - [Installation](#installation)
 - [Examples](#quick-example)
-  - [Option 1: Use directly in Rails Controllers](#option-1--use-directly-in-rails-controllers)
+  - [Usage 1: Use directly in Rails Controllers](#usage-1--rails-controllers)
+    - [Check for applied scopes](#check-for-applied-scopes)
+  - [Usage 2: Standalone mode](#usage-2--standalone-mode)
 - [Options](#options)
 - [Boolean usage](#boolean-usage)
 - [Block usage](#block-usage)
@@ -21,14 +23,20 @@ Has scope allows you to dynamically apply named scopes to your resources based o
 
 ## Installation
 
-Add `has_scope` to your Gemfile or install it from Rubygems.
+Add `has_scope` to your bundle
+
+```ruby
+bundle add has_scope
+```
+
+or add it manually to your Gemfile if you prefer.
 
 ```ruby
 gem 'has_scope'
 ```
 
 ## Examples
-Imagine the following model called graduations:
+For the following examples we'll use a model called graduations:
 
 ```ruby
 class Graduation < ActiveRecord::Base
@@ -37,8 +45,9 @@ class Graduation < ActiveRecord::Base
   scope :by_period, -> started_at, ended_at { where("started_at = ? AND ended_at = ?", started_at, ended_at) }
 end
 ```
-### Option 1: Use directly in Rails Controllers
-You can use those named scopes as filters by declaring them on your controller:
+
+### Usage 1: Rails Controllers
+_HasScope_ exposes the `has_scope` method automatically in all your controllers. This is used to declare the scopes a controller action can use to filter a resource:
 
 ```ruby
 class GraduationsController < ApplicationController
@@ -48,7 +57,7 @@ class GraduationsController < ApplicationController
 end
 ```
 
-Now, if you want to apply them to an specific resource, you just need to call `apply_scopes`:
+To apply the scopes to a specific resource, you just need to call `apply_scopes`:
 
 ```ruby
 class GraduationsController < ApplicationController
@@ -62,28 +71,126 @@ class GraduationsController < ApplicationController
 end
 ```
 
-Then for each request:
+Then for each request to the `index` action _HasScope_ will automatically apply the scopes as follows:
 
-```
-/graduations
-#=> acts like a normal request
+``` ruby
+# GET /graduations
+# No scopes applied
+#=> brings all graduations
+apply_scopes(Graduation).all == Graduation.all
 
-/graduations?featured=true
-#=> calls the named scope and bring featured graduations
+#GET /graduations?featured=true
+# The "featured' scope is applied
+#=> brings featured graduations
+apply_scopes(Graduation).all == Graduation.featured
 
-/graduations?by_period[started_at]=20100701&by_period[ended_at]=20101013
+# GET /graduations?by_period[started_at]=20100701&by_period[ended_at]=20101013
 #=> brings graduations in the given period
+apply_scopes(Graduation).all == Graduation.by_period('20100701', '20101013')
 
-/graduations?featured=true&by_degree=phd
+#GET /graduations?featured=true&by_degree=phd
 #=> brings featured graduations with phd degree
+apply_scopes(Graduation).all == Graduation.featured.by_degree('phd')
+
+#GET /graduations?finished=true&by_degree=phd
+#=> brings only graduations by phd degree because we didn't declared finished in our controller as a permitted scope
+
+apply_scopes(Graduation).all == Graduation.by_degree('phd')
 ```
 
-You can retrieve all the scopes applied in one action with `current_scopes` method.
-In the last case, it would return: `{ featured: true, by_degree: 'phd' }`.
+### Check for applied scopes
+
+_HasScope_ creates a helper method called `current_scopes` to retrieve all the scopes applied. As it's a helper method, you'll be able to access it in the controller action or the view rendered in that action.
+
+Coming back to an example from the previous section:
+```ruby
+#GET /graduations?featured=true&by_degree=phd
+#=> brings featured graduations with phd degree
+apply_scopes(Graduation).all == Graduation.featured.by_degree('phd')
+```
+
+Calling current_scopes would return the following:
+
+```
+current_scopes
+#=> { featured: true, by_degree: 'phd' }
+```
+And would be available to be called in:
+- `GraduationsController#index`
+- `views/graduations/index.html.erb` and all other partials rendered by this controller action.
+
+### Usage 2: Standalone Mode
+_HasScope_ can also be used in plain-old Ruby objects (PORO). Let's refactor the previous example as a PORO used by the same controller.
+First, we'll create a bare object to house our refactor
+
+```ruby
+class GraduationsSearchQuery
+  ###
+end
+```
+
+The first step is to include the `HasScope` mixin to allow our object to use all of its features:
+```ruby
+class GraduationsSearchQuery
+  include HasScope
+  #...
+end
+```
+
+Next, declare the scopes to be used:
+
+```ruby
+class GraduationsSearchQuery
+  include HasScope
+
+  has_scope :featured, type: :boolean
+  has_scope :by_degree
+  has_scope :by_period, using: %i[started_at ended_at], type: :hash
+  #...
+end
+```
+
+Now, allow your object to perform the query. 
+
+> We'll create a simple version of a query object for this example as this type of object can have multiple different implementations.
+
+```ruby
+class GraduationsSearchQuery
+  include HasScope
+
+  has_scope :featured, type: :boolean
+  has_scope :by_degree
+  has_scope :by_period, using: %i[started_at ended_at], type: :hash
+  
+  def initialize; end
+
+  def perform(collection:, params: {})
+    apply_scopes(collection, params)
+  end
+
+end
+```
+
+Note that `apply_scopes` receives a `hash` as a second argument. 
+
+In the previous implementation, we weren't required to pass in a second argument to `apply_scopes` in the controller action because it was taken care of by _HasScope_ automatically. However, as we're outside of the controller, we need to specify the parameters used to apply the scopes.
+
+Now in your controller you can call the `GraduationsSearchQuery` with the incomming parameters from the controller
+
+```ruby
+class GraduationsController < ApplicationController
+
+  def index
+    graduations_query = GraduationsSearchQuery.new
+    @graduations = graduations_query.perform(collection: Graduation, params: params)
+  end
+end
+```
+
 
 ## Options
 
-HasScope supports several options:
+`has_scope` supports several options:
 
 * `:type` - Checks the type of the parameter sent.
   By default, it does not allow hashes or arrays to be given,
@@ -133,9 +240,12 @@ the param value must be set to one of the "true" values above, e.g. `?active=tru
 
 ## Block usage
 
-`has_scope` also accepts a block. The controller, current scope and value are yielded
-to the block so the user can apply the scope on its own. This is useful in case we
-need to manipulate the given value:
+`has_scope` also accepts a block in case we need to manipulate the given value. Usually there are three arguments passed down in the block:
+- The instance of either the `controller` or the PORO where the gem is used
+- The scope to be applied
+- The value of the scope
+
+> 💡 We suggest you name the first argument depending on how you're using _HasScope_. If it's the controller, use the word "controller". If it's a query object use "query". In the following examples, we'll use controller for simplicity.
 
 ```ruby
 has_scope :category do |controller, scope, value|
