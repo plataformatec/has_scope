@@ -5,6 +5,20 @@
 [![Code Climate](https://codeclimate.com/github/heartcombo/has_scope.svg)](https://codeclimate.com/github/heartcombo/has_scope)
 
 Has scope allows you to map incoming controller parameters to named scopes in your resources.
+
+## Table of contents
+- [Quick Example](#quick-example)
+- [Installation](#installation)
+- [Options](#options)
+- [Boolean usage](#boolean-usage)
+- [Block usage](#block-usage)
+- [Keyword arguments](#keyword-arguments)
+- [Apply scope on every request](#apply-scope-on-every-request)
+- [Check which scopes have been applied](#check-which-scopes-have-been-applied)
+- [Bugs and Feedback](#bugs-and-feedback)
+
+
+## Quick example
 Imagine the following model called graduations:
 
 ```ruby
