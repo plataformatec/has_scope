@@ -7,8 +7,9 @@
 Has scope allows you to dynamically apply named scopes to your resources based on an incoming set of parameters.
 
 ## Table of contents
-- [Quick Example](#quick-example)
 - [Installation](#installation)
+- [Examples](#quick-example)
+  - [Option 1: Use directly in Rails Controllers](#option-1--use-directly-in-rails-controllers)
 - [Options](#options)
 - [Boolean usage](#boolean-usage)
 - [Block usage](#block-usage)
@@ -18,7 +19,15 @@ Has scope allows you to dynamically apply named scopes to your resources based o
 - [Bugs and Feedback](#bugs-and-feedback)
 
 
-## Quick example
+## Installation
+
+Add `has_scope` to your Gemfile or install it from Rubygems.
+
+```ruby
+gem 'has_scope'
+```
+
+## Examples
 Imagine the following model called graduations:
 
 ```ruby
@@ -28,13 +37,14 @@ class Graduation < ActiveRecord::Base
   scope :by_period, -> started_at, ended_at { where("started_at = ? AND ended_at = ?", started_at, ended_at) }
 end
 ```
-
+### Option 1: Use directly in Rails Controllers
 You can use those named scopes as filters by declaring them on your controller:
 
 ```ruby
 class GraduationsController < ApplicationController
   has_scope :featured, type: :boolean
   has_scope :by_degree
+  has_scope :by_period, using: %i[started_at ended_at], type: :hash
 end
 ```
 
@@ -70,14 +80,6 @@ Then for each request:
 
 You can retrieve all the scopes applied in one action with `current_scopes` method.
 In the last case, it would return: `{ featured: true, by_degree: 'phd' }`.
-
-## Installation
-
-Add `has_scope` to your Gemfile or install it from Rubygems.
-
-```ruby
-gem 'has_scope'
-```
 
 ## Options
 
